@@ -11,6 +11,7 @@ NMAX:
 	.globl	alloc_array
 	.type	alloc_array, @function
 alloc_array:
+	# Оставляем параметры в регистрах
 	push	rbp
 	mov	rbp, rsp
 	mov	rax, rdi
@@ -23,6 +24,7 @@ alloc_array:
 	.globl	free_array
 	.type	free_array, @function
 free_array:
+	# Оставляем параметры в регистрах
 	push	rbp
 	mov	rbp, rsp
 	call	free@PLT
@@ -45,6 +47,11 @@ input_array:
 	push r14
 	push r15
 	
+	# file -> r12
+	# array -> r13
+	# len -> r14
+	# i -> r15
+
 	mov	r12, rdi
 	mov	r13, rsi
 	mov	r14, rdx
@@ -78,6 +85,7 @@ input_array:
 	.globl	validate_size
 	.type	validate_size, @function
 validate_size:
+	# Оставляем параметр в регистре
 	push	rbp
 	mov	rbp, rsp
 	
@@ -108,6 +116,11 @@ print_array:
 	push r13
 	push r14
 	push r15
+
+	# file -> r12
+	# array -> r13
+	# len -> r14
+	# i -> r15
 	
 	mov	r12, rdi
 	mov	r13, rsi
@@ -146,8 +159,14 @@ print_array:
 	.globl	build_array
 	.type	build_array, @function
 build_array:
+
 	push	rbp
 	mov	rbp, rsp
+
+	# a, b - остаются в регистрах
+	# len -> r9
+	# i -> r8
+
 	mov	r9, rdx
 	mov	r8, 0
 	jmp	.L16
