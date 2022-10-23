@@ -26,40 +26,57 @@
 	.type	main, @function
 main:
 	endbr64
-	push	rbp
+	# Стандартный пролог
+	push	rbp  
 	mov	rbp, rsp
-	sub	rsp, 64
-	mov	DWORD PTR -52[rbp], edi
-	mov	QWORD PTR -64[rbp], rsi
-	cmp	DWORD PTR -52[rbp], 1
+	# Структура стека:
+	# rbp_last
+	# -8 - fin
+	# -16 - fout
+	# -24 - len
+	# -32 - a
+	# 40 - b
+	# -44 - n
+	# -52 - argc
+	# -64 - argv
+
+	sub	rsp, 64  # выделение памяти для локальных переменных на стеке
+	mov	DWORD PTR -52[rbp], edi  # argc
+	mov	QWORD PTR -64[rbp], rsi  # argv
+	
+	# случай отсутствия параметров
+	cmp	DWORD PTR -52[rbp], 1 # argc == 1
 	jne	.L2
+	# fprintf(stderr, "No parameters are provided")
 	mov	rax, QWORD PTR stderr[rip]
-	mov	rcx, rax
+	mov	rcx, rax 
 	mov	edx, 27
-	mov	esi, 1
+	mov	esi, 1 
 	lea	rax, .LC0[rip]
 	mov	rdi, rax
 	call	fwrite@PLT
 	mov	eax, 1
 	jmp	.L10
 .L2:
+	# !strcmp(argv[1], "-i")
 	mov	rax, QWORD PTR -64[rbp]
-	add	rax, 8
+	add	rax, 8 # argv[1]
 	mov	rax, QWORD PTR [rax]
-	lea	rdx, .LC1[rip]
+	lea	rdx, .LC1[rip] # "-i"
 	mov	rsi, rdx
 	mov	rdi, rax
 	call	strcmp@PLT
 	test	eax, eax
 	jne	.L4
 	mov	rax, QWORD PTR stdin[rip]
-	mov	QWORD PTR -8[rbp], rax
+	mov	QWORD PTR -8[rbp], rax # fin = stdin
 	mov	rax, QWORD PTR stdout[rip]
-	mov	QWORD PTR -16[rbp], rax
+	mov	QWORD PTR -16[rbp], rax # fout = stdout
 	jmp	.L5
 .L4:
+	# !strcmp(argv[1], "-f")
 	mov	rax, QWORD PTR -64[rbp]
-	add	rax, 8
+	add	rax, 8 # argv[1]
 	mov	rax, QWORD PTR [rax]
 	lea	rdx, .LC2[rip]
 	mov	rsi, rdx
@@ -67,8 +84,10 @@ main:
 	call	strcmp@PLT
 	test	eax, eax
 	jne	.L6
+	# if (argc < 4)
 	cmp	DWORD PTR -52[rbp], 3
 	jg	.L7
+	# fprintf(stderr, "Input/output files are not provided")
 	mov	rax, QWORD PTR stderr[rip]
 	mov	rcx, rax
 	mov	edx, 36
@@ -79,14 +98,17 @@ main:
 	mov	eax, 1
 	jmp	.L10
 .L7:
+	# fin = fopen(argv[2], "r")
 	mov	rax, QWORD PTR -64[rbp]
-	add	rax, 16
+	add	rax, 16 # argv[2]
 	mov	rax, QWORD PTR [rax]
 	lea	rdx, .LC4[rip]
 	mov	rsi, rdx
 	mov	rdi, rax
 	call	fopen@PLT
-	mov	QWORD PTR -8[rbp], rax
+	mov	QWORD PTR -8[rbp], rax # fin
+
+	# fout = fopen(argv[2], "w")
 	mov	rax, QWORD PTR -64[rbp]
 	add	rax, 24
 	mov	rax, QWORD PTR [rax]
@@ -94,9 +116,10 @@ main:
 	mov	rsi, rdx
 	mov	rdi, rax
 	call	fopen@PLT
-	mov	QWORD PTR -16[rbp], rax
+	mov	QWORD PTR -16[rbp], rax # fout
 	jmp	.L5
 .L6:
+	# fprtinf(stderr, "Invalid parameter")
 	mov	rax, QWORD PTR stderr[rip]
 	mov	rcx, rax
 	mov	edx, 17
@@ -107,19 +130,23 @@ main:
 	mov	eax, 1
 	jmp	.L10
 .L5:
-	lea	rdx, -44[rbp]
+	# fscanf(fin, "%d", &n)
+	lea	rdx, -44[rbp] # n
 	mov	rax, QWORD PTR -8[rbp]
 	lea	rcx, .LC7[rip]
 	mov	rsi, rcx
 	mov	rdi, rax
 	mov	eax, 0
 	call	__isoc99_fscanf@PLT
-	mov	eax, DWORD PTR -44[rbp]
+	
+	# validate_size(n)
+	mov	eax, DWORD PTR -44[rbp] # n
 	mov	edi, eax
 	call	validate_size@PLT
 	test	eax, eax
 	je	.L8
-	mov	rax, QWORD PTR -16[rbp]
+	# fprintf(fout, "Invalid size of the array")
+	mov	rax, QWORD PTR -16[rbp] # fout
 	mov	rcx, rax
 	mov	edx, 25
 	mov	esi, 1
@@ -129,72 +156,67 @@ main:
 	mov	eax, 0
 	jmp	.L10
 .L8:
-	mov	eax, DWORD PTR -44[rbp]
+	mov	eax, DWORD PTR -44[rbp] # n
 	cdqe
-	mov	QWORD PTR -24[rbp], rax
-	mov	eax, DWORD PTR -44[rbp]
+	mov	QWORD PTR -24[rbp], rax # len
+
+	# a = alloc_array(n)
+	mov	eax, DWORD PTR -44[rbp] # n
 	cdqe
 	mov	rdi, rax
 	call	alloc_array@PLT
-	mov	QWORD PTR -32[rbp], rax
-	mov	rax, QWORD PTR -24[rbp]
+	mov	QWORD PTR -32[rbp], rax # a
+
+	# b = alloc_array(len)
+	mov	rax, QWORD PTR -24[rbp] # len
 	mov	rdi, rax
 	call	alloc_array@PLT
-	mov	QWORD PTR -40[rbp], rax
-	mov	rdx, QWORD PTR -24[rbp]
-	mov	rcx, QWORD PTR -32[rbp]
-	mov	rax, QWORD PTR -8[rbp]
+	mov	QWORD PTR -40[rbp], rax # b
+
+	# input_array(fin, a, len)
+	mov	rdx, QWORD PTR -24[rbp] # len
+	mov	rcx, QWORD PTR -32[rbp] # a
+	mov	rax, QWORD PTR -8[rbp] # fin
 	mov	rsi, rcx
 	mov	rdi, rax
 	call	input_array@PLT
-	mov	rcx, QWORD PTR -40[rbp]
-	mov	rax, QWORD PTR -32[rbp]
+
+	# build_array(a, b, 5)
+	mov	rcx, QWORD PTR -40[rbp] # b
+	mov	rax, QWORD PTR -32[rbp] # a
 	mov	edx, 5
 	mov	rsi, rcx
 	mov	rdi, rax
 	call	build_array@PLT
-	mov	rdx, QWORD PTR -24[rbp]
-	mov	rcx, QWORD PTR -40[rbp]
-	mov	rax, QWORD PTR -16[rbp]
+	mov	rdx, QWORD PTR -24[rbp] # len
+	mov	rcx, QWORD PTR -40[rbp] # b
+	mov	rax, QWORD PTR -16[rbp] # fout
 	mov	rsi, rcx
 	mov	rdi, rax
 	call	print_array@PLT
 	mov	rax, QWORD PTR stdin[rip]
-	cmp	QWORD PTR -8[rbp], rax
+	cmp	QWORD PTR -8[rbp], rax # fin
 	je	.L9
-	mov	rax, QWORD PTR -8[rbp]
+	# fclose(fin)
+	mov	rax, QWORD PTR -8[rbp] # fin
 	mov	rdi, rax
 	call	fclose@PLT
-	mov	rax, QWORD PTR -16[rbp]
+	
+	# fclose(fout)
+	mov	rax, QWORD PTR -16[rbp] # fout
 	mov	rdi, rax
 	call	fclose@PLT
 .L9:
-	mov	rax, QWORD PTR -32[rbp]
+	# free_array(a)
+	mov	rax, QWORD PTR -32[rbp] # a
 	mov	rdi, rax
 	call	free_array@PLT
-	mov	rax, QWORD PTR -40[rbp]
+	# free_array(b)
+	mov	rax, QWORD PTR -40[rbp] # b
 	mov	rdi, rax
 	call	free_array@PLT
 	mov	eax, 0
 .L10:
+	# Стандартный эпилог
 	leave
 	ret
-	.size	main, .-main
-	.ident	"GCC: (Ubuntu 11.2.0-19ubuntu1) 11.2.0"
-	.section	.note.GNU-stack,"",@progbits
-	.section	.note.gnu.property,"a"
-	.align 8
-	.long	1f - 0f
-	.long	4f - 1f
-	.long	5
-0:
-	.string	"GNU"
-1:
-	.align 8
-	.long	0xc0000002
-	.long	3f - 2f
-2:
-	.long	0x3
-3:
-	.align 8
-4:
